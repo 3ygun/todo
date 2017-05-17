@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"time"
 )
@@ -24,7 +23,9 @@ func CreateStartData() {
 func RepoFindTodo(id int64) Todo {
 	var t Todo
 
-	err := db.QueryRow("SELECT id, name, completed, due FROM "+dbTable+" WHERE id=?", id).Scan(&t.Id, &t.Name, &t.Completed, &t.Due)
+	err := db.QueryRow("SELECT id, name, completed, due "+
+		"FROM "+dbTableData+", "+dbTableRemoved+" "+
+		"WHERE id=? AND todos_id<>?", id, id).Scan(&t.Id, &t.Name, &t.Completed, &t.Due)
 	switch {
 	case err == sql.ErrNoRows:
 		log.Printf("No user with that ID.")
@@ -41,7 +42,10 @@ func RepoFindTodo(id int64) Todo {
 func RepoGetAllTodos() []Todo {
 	var todos []Todo
 
-	rows, err := db.Query("SELECT * FROM " + dbTable)
+	rows, err := db.Query("SELECT * " +
+		"FROM " + dbTableData + " " +
+		"WHERE id NOT IN " +
+		"(SELECT todo_id FROM " + dbTableRemoved + ");")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,7 +65,7 @@ func RepoGetAllTodos() []Todo {
 
 //this is bad, I don't think it passes race condtions
 func RepoCreateTodo(t Todo) Todo {
-	stmt, err := db.Prepare(fmt.Sprintf("INSERT INTO %s (name, completed, due) VALUES(?, ?, ?)", dbTable))
+	stmt, err := db.Prepare("INSERT INTO " + dbTableData + " (name, completed, due) VALUES(?, ?, ?)")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,12 +85,14 @@ func RepoCreateTodo(t Todo) Todo {
 }
 
 func RepoDestroyTodo(id int64) error {
-	// for i, t := range todos {
-	// 	if t.Id == id {
-	// 		todos = append(todos[:i], todos[i+1:]...)
-	// 		return nil
-	// 	}
-	// }
-	// return fmt.Errorf("Could not find Todo with id of %d to delete", id)
+	stmt, err := db.Prepare("INSERT INTO " + dbTableRemoved + " (todo_id) VALUES(?)")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = stmt.Exec(id)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return nil
 }

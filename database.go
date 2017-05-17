@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	dbName  = "todoApp"
-	dbTable = "todos"
+	dbName         = "todoApp"
+	dbTableData    = "todos"
+	dbTableRemoved = "removedTodos"
 )
 
 func CreateDatabase() *sql.DB {
@@ -44,12 +45,21 @@ func initializeDatabase(db *sql.DB) {
 		panic(err)
 	}
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS " + dbTable + " ( " +
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS " + dbTableData + " ( " +
 		"id INTEGER NOT NULL AUTO_INCREMENT, " +
 		"name VARCHAR(255), " +
 		"completed BOOLEAN, " +
 		"due DATETIME, " +
 		"PRIMARY KEY (id) )")
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS " + dbTableRemoved + " ( " +
+		"todo_remove_id INTEGER NOT NULL AUTO_INCREMENT, " +
+		"todo_id INTEGER NOT NULL, " +
+		"PRIMARY KEY (todo_remove_id), " +
+		"FOREIGN KEY (todo_id) REFERENCES " + dbTableData + " (id) )")
 	if err != nil {
 		panic(err)
 	}

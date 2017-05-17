@@ -15,7 +15,7 @@ func main() {
 	db = CreateDatabase()
 	defer db.Close()
 
-	CreateStartData()
+	// CreateStartData()
 	router := NewRouter()
 
 	log.Fatal(http.ListenAndServe(":8080", router))
