@@ -1,40 +1,72 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"time"
 )
 
-var currentId int
-
-var todos Todos
-
 // Give us some seed data
 func CreateStartData() {
-	RepoCreateTodo("Write presentation")
-	RepoCreateTodo("Host meetup")
+	RepoCreateTodo(Todo{
+		Name:      "Write presentation",
+		Completed: false,
+		Due:       time.Now(),
+	})
+	RepoCreateTodo(Todo{
+		Name:      "Host meetup",
+		Completed: false,
+		Due:       time.Now(),
+	})
 }
 
 func RepoFindTodo(id int64) Todo {
-	for _, t := range todos {
-		if t.Id == id {
-			return t
-		}
+	var t Todo
+
+	err := db.QueryRow("SELECT id, name, completed, due FROM "+dbTable+" WHERE id=?", id).Scan(&t.Id, &t.Name, &t.Completed, &t.Due)
+	switch {
+	case err == sql.ErrNoRows:
+		log.Printf("No user with that ID.")
+		return Todo{}
+	case err != nil:
+		log.Fatal(err)
+	default:
+		log.Printf("Todo is %s\n", t)
 	}
-	// return empty Todo if not found
-	return Todo{}
+
+	return t
+}
+
+func RepoGetAllTodos() []Todo {
+	var todos []Todo
+
+	rows, err := db.Query("SELECT * FROM " + dbTable)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var t Todo
+		err := rows.Scan(&t.Id, &t.Name, &t.Completed, &t.Due)
+		if err != nil {
+			panic(err)
+		}
+		todos = append(todos, t)
+	}
+
+	return todos
 }
 
 //this is bad, I don't think it passes race condtions
-func RepoCreateTodo(name string) Todo {
-	datetime := time.Now()
-	stmt, err := db.Prepare(fmt.Sprintf("INSERT INTO %s (name, completed, due) VALUES(?, FALSE, NOW())", dbTable))
+func RepoCreateTodo(t Todo) Todo {
+	stmt, err := db.Prepare(fmt.Sprintf("INSERT INTO %s (name, completed, due) VALUES(?, ?, ?)", dbTable))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	res, err := stmt.Exec(name)
+	res, err := stmt.Exec(t.Name, t.Completed, t.Due)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,28 +76,17 @@ func RepoCreateTodo(name string) Todo {
 		log.Fatal(err)
 	}
 
-	t := Todo{
-		Id:        lastId,
-		Name:      name,
-		Completed: false,
-		Due:       datetime,
-	}
-	todos = append(todos, t)
+	t.Id = lastId
 	return t
 }
 
-func RepoCreateTodoFrom(todo Todo) Todo {
-	todo.Id = 0
-	todos = append(todos, todo)
-	return todo
-}
-
 func RepoDestroyTodo(id int64) error {
-	for i, t := range todos {
-		if t.Id == id {
-			todos = append(todos[:i], todos[i+1:]...)
-			return nil
-		}
-	}
-	return fmt.Errorf("Could not find Todo with id of %d to delete", id)
+	// for i, t := range todos {
+	// 	if t.Id == id {
+	// 		todos = append(todos[:i], todos[i+1:]...)
+	// 		return nil
+	// 	}
+	// }
+	// return fmt.Errorf("Could not find Todo with id of %d to delete", id)
+	return nil
 }

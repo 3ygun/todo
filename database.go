@@ -16,7 +16,8 @@ func CreateDatabase() *sql.DB {
 	var password = os.Getenv("MYSQL_ROOT_PASSWORD")
 
 	// Create the database handle, confirm driver is present
-	db, err := sql.Open("mysql", "root:"+password+"@/")
+	// Use ?parseTime=true to get correct DATETIME to time.Time parsing
+	db, err := sql.Open("mysql", "root:"+password+"@/?parseTime=true")
 	if err != nil {
 		panic(err)
 	}
